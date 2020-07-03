@@ -613,7 +613,9 @@ namespace CloudberryKingdom
 
         int PlayerManager::MinPlayerTotalCampaignLevel()
         {
-            int max = 0;
+			return 0;
+
+            /*int max = 0;
 			//std::vector<boost::shared_ptr<PlayerData> > vec = getExistingPlayers();
 			//for ( std::vector<boost::shared_ptr<PlayerData> >::const_iterator player = vec.begin(); player != vec.end(); ++player )
    //         {
@@ -628,7 +630,7 @@ namespace CloudberryKingdom
 					max = __max( max, Players[ i ]->GetTotalCampaignLevel() );
 			}
 
-			return max;
+			return max;*/
         }
 
         int PlayerManager::MinPlayerTotalCampaignIndex()

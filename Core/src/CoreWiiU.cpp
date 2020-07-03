@@ -49,6 +49,10 @@ CoreWiiU &CoreWiiU::operator = ( const CoreWiiU &rhs )
 static u8 *ErrorViewerWorkArea = NULL;
 extern FSClient *GLOBAL_FSClient;
 bool ReEnableHomeButton = false;
+bool DemoEndResetOverride = false;
+
+// Idle timeout counter. Defined in CloudberryKingdom.CloudberryKingdomGame.cpp.
+extern int IdleCounter;
 
 u32 HomeButtonDeniedCallback( void *context )
 {
@@ -224,7 +228,7 @@ CoreWiiU::CoreWiiU( GameLoop &game ) :
 	DEMOGfxInit( 2, gfxArgs );
 	DEMODRCInit( 2, drcArgs );
 
-	ReserveVideoPlayerMemory();
+	//ReserveVideoPlayerMemory();
 	InitializeIntermediateTextureHeap();
 	//DEMOSetReleaseCallback( ForegroundReleaseCallback );
 
@@ -377,7 +381,7 @@ CoreWiiU::~CoreWiiU()
 	LOG_WRITE( "SHUTDOWN START\n" );
 	
 	nn::act::Finalize();
-	SAVEShutdown();
+	//SAVEShutdown();
 
 	ShutdownErrorSystem();
 	TerminateSaveFS();
@@ -455,7 +459,19 @@ int CoreWiiU::Run()
 				nn::erreula::AppearArg appearArg;
 				appearArg.setControllerType( nn::erreula::cControllerType_Remo0 );
 				appearArg.setScreenType( nn::erreula::cScreenType_Dual );
-				appearArg.setErrorCode( currentErrorCode );
+
+				if( currentErrorCode != 0xDEADBEEF )
+				{
+					appearArg.setErrorCode( currentErrorCode );
+				}
+				else
+				{
+					appearArg.setErrorType( nn::erreula::cErrorType_TextBtn );
+					appearArg.setButtonString( L"OK!" );
+					appearArg.setMainTextString( L"You have reached the end of the demo! Thank you for playing!" );
+					appearArg.setTitleString( L"You Win!" );
+				}                              
+				
 				nn::erreula::AppearErrorViewer( appearArg );
 				//viewerVisible = true;
 			}
@@ -497,6 +513,24 @@ int CoreWiiU::Run()
 		nn::erreula::State viewerState = nn::erreula::GetStateErrorViewer();
 		if( viewerState != nn::erreula::cState_Blank )
 		{
+			if( currentErrorCode == 0xDEADBEEF )
+			{
+				IdleCounter += 1;
+
+				if( IdleCounter > 60 * 60 * 1 )
+				{
+					DemoEndResetOverride = true;
+					IdleCounter = 0;
+
+					if( nn::erreula::GetStateErrorViewer() == nn::erreula::cState_Display )
+					{
+						nn::erreula::DisappearErrorViewer();
+						FMOD_WiiU_SetMute( FALSE );
+						//viewerVisible = false;
+					}
+				}
+			}
+
 			if( nn::erreula::IsDecideSelectButtonError() )
 			{
 				// Exit and jump to data management!
@@ -511,6 +545,11 @@ int CoreWiiU::Run()
 					s32 error = SYSLaunchSettings( &cpArgs );
 					LOG_WRITE( "SYSLaunchSettings returned %d\n", error );
 					/*DEMOStopRunning();*/
+				}
+				else if( currentErrorCode == 0xDEADBEEF )
+				{
+					DemoEndResetOverride = true;
+					IdleCounter = 0;
 				}
 
 				if( nn::erreula::GetStateErrorViewer() == nn::erreula::cState_Display )
@@ -531,6 +570,18 @@ int CoreWiiU::Run()
 					currentErrorCode = 0;
 				}
 			}
+
+			/*if( HideErrorViewer )
+			{
+				HideErrorViewer = false;
+
+				if( nn::erreula::GetStateErrorViewer() == nn::erreula::cState_Display )
+				{
+					nn::erreula::DisappearErrorViewer();
+					FMOD_WiiU_SetMute( FALSE );
+					//viewerVisible = false;
+				}
+			}*/
 			/*else if( currentErrorCode == 1650101 )
 			{
 				if( vpadConnected || anythingElseConnected )

@@ -53,6 +53,10 @@
 #include "Game/Menus/Concrete Menus/Loading Screen/ILoadingScreen.h"
 #include "Core/Text/EzText.h"
 
+// Idle timeout counter. Defined in CloudberryKingdom.CloudberryKingdomGame.cpp.
+extern int IdleCounter;
+
+
 namespace CloudberryKingdom
 {
 
@@ -438,6 +442,8 @@ namespace CloudberryKingdom
 
 	void ScreenSaver::BackgroundPhsx()
 	{
+		IdleCounter = 0;
+
 		StringWorldGameData::BackgroundPhsx();
 
 		if ( Tools::TheGame->LoadingScreen_Renamed != 0 && !Tools::TheGame->LoadingScreen_Renamed->IsDone )
@@ -474,7 +480,8 @@ namespace CloudberryKingdom
 				lvl->MyGame->WaitThenDo( zoomout_start - 3 - 3, boost::make_shared<RecordScratchLambda>() );
 				
 				Tools::SongWad->PlayList = Tools::SongList_Standard;
-				Tools::SongWad->Next( Tools::Song_Ripcurl );
+				//Tools::SongWad->Next( Tools::Song_Ripcurl );
+				Tools::SongWad->CurIndex = IndexOf( Tools::SongWad->PlayList, Tools::Song_Ripcurl );
 				Tools::SongWad->PlayNext = true;
 
 				Tools::SongWad->Restart( true, false );

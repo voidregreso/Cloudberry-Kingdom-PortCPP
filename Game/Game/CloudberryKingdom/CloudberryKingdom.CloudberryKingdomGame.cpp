@@ -200,6 +200,11 @@ void GlobalShowSaving()
 	CloudberryKingdom::CloudberryKingdomGame::ShowSaving();
 }
 
+// Force reset the game after the demo has ended.  Defined in CoreWiiU.cpp.
+extern bool DemoEndResetOverride;
+
+int IdleCounter = 0;
+
 #endif
 
 #ifdef PS3
@@ -222,7 +227,7 @@ namespace CloudberryKingdom
 	const bool FinalRelease = false;
 #endif
 
-	bool CloudberryKingdomGame::DigitalDayBuild = false;
+	bool CloudberryKingdomGame::DigitalDayBuild = true;
 	
 	static bool IsCheatTime()
 	{
@@ -514,6 +519,8 @@ namespace CloudberryKingdom
 		bool CloudberryKingdomGame::PastPressStart = false;
 		bool CloudberryKingdomGame::CanSave()
 		{
+			return false;
+
 			if ( getIsDemo() ) return false;
 
 			if ( ChoseNotToSave ) return false;
@@ -757,7 +764,7 @@ Version CloudberryKingdomGame::GameVersion = Version( 0, 2, 4 );
 #else
         bool CloudberryKingdomGame::AlwaysGiveTutorials = false;
         bool CloudberryKingdomGame::Unlock_Customization = true;
-        bool CloudberryKingdomGame::Unlock_Levels = false;//!FinalRelease || CloudberryKingdomGame::DigitalDayBuild;
+        bool CloudberryKingdomGame::Unlock_Levels = true;//!FinalRelease || CloudberryKingdomGame::DigitalDayBuild;
 #endif
 
         bool FakeDemo = false;
@@ -1319,10 +1326,23 @@ float CloudberryKingdomGame::fps = 0;
         }
     }
 
+	
 	void CloudberryKingdomGame::PhsxStep()
 	{
 		DoToDoList();
 
+		if( IdleCounter > 60 * 60 * 5 )
+		{
+			DemoEndResetOverride = true;
+			IdleCounter = 0;
+		}
+
+		IdleCounter++;
+
+		if( ButtonCheck::AnyKey() )
+		{
+			IdleCounter = 0;
+		}
 //#if WINDOWS
 //		// Load a test level.
 //		if ( !FinalRelease && KeyboardExtension::IsKeyDownCustom( Tools::Keyboard, Keys_D5 ) && !KeyboardExtension::IsKeyDownCustom( Tools::PrevKeyboard, Keys_D5 ) )
@@ -1361,7 +1381,7 @@ float CloudberryKingdomGame::fps = 0;
 		CheckForQuickSpawn_PC();
 	#endif
 #else
-
+		
 	#if defined(DEBUG)
 		GodModePhxs();
 	#else
@@ -1875,27 +1895,39 @@ float CloudberryKingdomGame::fps = 0;
         }
 
 
-
-
-
-
+#ifdef CAFE
+	// Current state of the watermark.  Defined in TitleGame_MW.cpp.
+	extern int WatermarkCounter;
+#endif
 
 
 	void DrawWatermark()
 	{
-		return;
+		/*return;
 
 		if ( FinalRelease ) return;
 		if (Tools::QDrawer == 0) return;
 		if (Resources::Font_Grobold42 == 0) return;
 		if (Resources::Font_Grobold42->HFont == 0) return;
-		if (Resources::Font_Grobold42->HOutlineFont == 0) return;
+		if (Resources::Font_Grobold42->HOutlineFont == 0) return;*/
 
-		boost::shared_ptr<Camera> cam = boost::make_shared<Camera>();
-		cam->SetVertexCamera();
-		Tools::QDrawer->DrawString( Resources::Font_Grobold42->HOutlineFont, L"Version 0.9.9", Vector2(1200, 870), Color::Black.ToVector4(), Vector2(.8f));
-		Tools::QDrawer->DrawString( Resources::Font_Grobold42->HFont, L"Version 0.9.9", Vector2(1200, 870), Color::SkyBlue.ToVector4(), Vector2(.8f));
-		Tools::QDrawer->Flush();
+#ifdef CAFE
+		if( WatermarkCounter > 0)
+#else
+		if( true )
+#endif
+		{
+			boost::shared_ptr<Camera> cam = boost::make_shared<Camera>();
+			cam->SetVertexCamera();
+			const std::wstring watermark = L"May 23 2013 23:58:33";
+			Tools::QDrawer->DrawString( Resources::Font_Grobold42->HOutlineFont, watermark, Vector2(1090, 870), Color::Black.ToVector4(), Vector2(.8f));
+			Tools::QDrawer->DrawString( Resources::Font_Grobold42->HFont, watermark, Vector2(1090, 870), Color::SkyBlue.ToVector4(), Vector2(.8f));
+			Tools::QDrawer->Flush();
+
+#ifdef CAFE
+			--WatermarkCounter;
+#endif
+		}
 	}
 
 
@@ -1941,7 +1973,6 @@ float CloudberryKingdomGame::fps = 0;
 
 		};
 
-
 	void CloudberryKingdomGame::Draw( const boost::shared_ptr<GameTime> &gameTime )
 	{
 	#if defined(DEBUG_OBJDATA)
@@ -1965,7 +1996,7 @@ float CloudberryKingdomGame::fps = 0;
 		Tools::DrawCount++;
 		if ( SetupToRender() )
 		{
-			DrawWatermark();
+			//DrawWatermark();
 			return;
 		}
 #else

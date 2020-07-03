@@ -52,10 +52,24 @@
 #include <Core\Tools\Set.h>
 
 #include <Game/CloudberryKingdom/CloudberryKingdom.CloudberryKingdomGame.h>
+#include <Input/GamePad.h>
+#include <Input/GamePadState.h>
+#include <Input/InputEnums.h>
 
 #include "Core/Song/EzSongWad.h"
 
 #include <MasterHack.h>
+
+#ifdef CAFE
+#include <cafe.h>
+#endif
+
+// Force reset the game after the demo has ended.  Defined in CoreWiiU.cpp.
+extern bool DemoEndResetOverride;
+
+// Is player 0 holding the down or B button? Defined in GamePadWiiU.cpp.
+extern bool GLOBAL_PLAYER0_DOWN;
+extern bool GLOBAL_PLAYER0_MINI_B;
 
 namespace CloudberryKingdom
 {
@@ -1179,12 +1193,91 @@ namespace CloudberryKingdom
 				SoftPause = true;
 	}
 
+	// Defined in TitleGame_MW.cpp.
+	extern bool WatermarkDisabledBySoftwareReset;
+
 	void GameData::PhsxStep()
 	{
 		boost::shared_ptr<GameData> SaveMeJesus = shared_from_this();
 
 		if ( Loading || Tools::ShowLoadingScreen )
 			return;
+
+		static int XButtonPressCount = 0;
+
+		// Digital day
+		if ( CloudberryKingdomGame::DigitalDayBuild )
+		{
+			bool a = false;
+			bool usingB = false;
+			if( GamePad::GetState( static_cast< PlayerIndex >( 0 ) ).Type == GamePadState::ControllerType_Mini )
+			{
+				a = GLOBAL_PLAYER0_MINI_B;
+				usingB = true;
+			}
+			else
+			{
+				a = ButtonCheck::State( ControllerButtons_B, 0 ).Down;
+			}
+			bool b = ButtonCheck::State( ControllerButtons_BACK, 0 ).Down;
+			bool c = GLOBAL_PLAYER0_DOWN;//ButtonCheck::GetDir( 0 ).Y < -0.5f;
+			
+#ifdef CAFE
+			//OSReport( "B: %d -: %d DPAD: %d usingB: %d\n", a, b, c, usingB );
+#endif
+			if( DemoEndResetOverride )
+			{
+				a = true;
+				b = true;
+				c = true;
+				XButtonPressCount = 181;
+				DemoEndResetOverride = false;
+			}
+
+			if ( a && b && c )
+			{	
+				XButtonPressCount++;
+
+				if ( XButtonPressCount > 180 )
+				{
+					Tools::SongWad->Stop();
+
+					WatermarkDisabledBySoftwareReset = true;
+
+					CharacterSelectManager::IsShowing = false;
+					CharacterSelectManager::FakeHide = false;
+
+					for ( int i = 0; i < 4; i++ )
+					{
+						if ( CharacterSelectManager::CharSelect[i] != 0 )
+						{
+							CharacterSelectManager::CharSelect[i]->Release();
+							CharacterSelectManager::CharSelect[i].reset();
+						}
+					}
+
+					boost::shared_ptr<GameData> game = Tools::CurGameData;
+
+					game->KillToDo( std::wstring( L"StartCharSelect" ) );
+
+					game->RemoveGameObjects( GameObject::Tag_CHAR_SELECT );
+					if ( CharacterSelectManager::Backdrop != 0 ) CharacterSelectManager::Backdrop->Release();
+
+					CharacterSelectManager::OnDone.reset();
+					CharacterSelectManager::ParentPanel.reset();
+
+					// Start at Screen Saver
+					boost::shared_ptr<ScreenSaver> Intro = boost::make_shared<ScreenSaver>();
+					ScreenSaver_Construct( Intro );
+					Intro->Init();
+					return;
+				}
+			}
+			else
+			{
+				XButtonPressCount = 0;
+			}
+		}
 
 		// Update the socre and coin score multiplier
 		CalculateScoreMultiplier();
